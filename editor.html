@@ -36,6 +36,127 @@
     position: relative;
   }
 
+  .attendance-dashboard {
+    background-color: #252526;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .attendance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .attendance-header h3 {
+    color: #4fc3f7;
+    margin: 0;
+  }
+
+  .check-in-btn {
+    background-color: #1e5f1e;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    transition: background-color 0.3s;
+  }
+
+  .check-in-btn:hover {
+    background-color: #2a7f2a;
+  }
+
+  .check-in-btn:disabled {
+    background-color: #555555;
+    cursor: not-allowed;
+  }
+
+  .attendance-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 15px;
+    text-align: center;
+  }
+
+  .stat-label {
+    color: #888888;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .stat-value {
+    color: #4fc3f7;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .attendance-history {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .attendance-history h4 {
+    color: #4fc3f7;
+    margin-top: 0;
+  }
+
+  .attendance-item {
+    padding: 8px;
+    border-bottom: 1px solid #3c3c3c;
+    font-size: 13px;
+    color: #b0b0b0;
+  }
+
+  .attendance-item:last-child {
+    border-bottom: none;
+  }
+
+  .attendance-item .date {
+    color: #4fc3f7;
+    font-weight: bold;
+  }
+
+  .attendance-item .status {
+    color: #6bff6b;
+    margin-left: 10px;
+  }
+
+  .check-in-message {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    display: none;
+  }
+
+  .check-in-message.success {
+    background-color: #1e5f1e;
+    color: #6bff6b;
+    display: block;
+  }
+
+  .check-in-message.info {
+    background-color: #1e3a5f;
+    color: #4fc3f7;
+    display: block;
+  }
+
   #output {
     background-color: #0d0d0d;
     border: 1px solid #3c3c3c;
@@ -175,6 +296,36 @@
 </nav>
 
 <div class="container">
+  <!-- 출석 체크 대시보드 -->
+  <div class="attendance-dashboard">
+    <div class="attendance-header">
+      <h3>📋 출석 현황</h3>
+      <button class="check-in-btn" id="checkInBtn" onclick="checkAttendance()">✓ 출석 체크</button>
+    </div>
+
+    <div id="checkInMessage" class="check-in-message"></div>
+
+    <div class="attendance-stats">
+      <div class="stat-card">
+        <div class="stat-label">총 참석 일수</div>
+        <div class="stat-value" id="totalDays">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">이번 달</div>
+        <div class="stat-value" id="monthDays">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">최근 출석</div>
+        <div class="stat-value" id="lastCheckIn">-</div>
+      </div>
+    </div>
+
+    <div class="attendance-history">
+      <h4>📅 출석 기록</h4>
+      <div id="attendanceList"></div>
+    </div>
+  </div>
+
   <h2>C 코드 입력</h2>
   <div class="info-box">
     💡 C 코드를 입력하고 "▶ 실행" 버튼을 클릭하면 결과를 확인할 수 있습니다.
@@ -219,7 +370,105 @@ int main() {
 </div>
 
 <script>
-// 페이지 로드 시 로그인 확인
+// 출석 체크 관련 함수
+function getAttendanceData(username) {
+  const key = `attendance_${username}`;
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : { dates: [], totalDays: 0 };
+}
+
+function saveAttendanceData(username, data) {
+  const key = `attendance_${username}`;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function getTodayDate() {
+  const today = new Date();
+  return today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+}
+
+function checkAttendance() {
+  const currentUser = localStorage.getItem('currentUser');
+  const today = getTodayDate();
+  const data = getAttendanceData(currentUser);
+  const checkInBtn = document.getElementById('checkInBtn');
+  const messageEl = document.getElementById('checkInMessage');
+
+  // 오늘 이미 출석했는지 확인
+  if (data.dates.includes(today)) {
+    messageEl.className = 'check-in-message info';
+    messageEl.textContent = '✓ 오늘 이미 출석했습니다!';
+    checkInBtn.disabled = true;
+    return;
+  }
+
+  // 새로운 출석 기록 추가
+  data.dates.push(today);
+  data.totalDays = data.dates.length;
+  saveAttendanceData(currentUser, data);
+
+  messageEl.className = 'check-in-message success';
+  messageEl.textContent = `✓ 출석 완료! 총 ${data.totalDays}일 참석했습니다.`;
+  checkInBtn.disabled = true;
+
+  // UI 업데이트
+  updateAttendanceUI(currentUser);
+}
+
+function updateAttendanceUI(username) {
+  const data = getAttendanceData(username);
+  const today = getTodayDate();
+  const checkInBtn = document.getElementById('checkInBtn');
+
+  // 총 참석 일수
+  document.getElementById('totalDays').textContent = data.totalDays;
+
+  // 이번 달 참석 일수
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const monthDays = data.dates.filter(date => date.startsWith(currentMonth)).length;
+  document.getElementById('monthDays').textContent = monthDays;
+
+  // 최근 출석 날짜
+  if (data.dates.length > 0) {
+    const lastDate = new Date(data.dates[data.dates.length - 1]);
+    document.getElementById('lastCheckIn').textContent = lastDate.toLocaleDateString('ko-KR');
+  }
+
+  // 출석 기록 목록
+  const attendanceList = document.getElementById('attendanceList');
+  attendanceList.innerHTML = '';
+
+  // 최근 10개의 출석 기록만 표시 (역순)
+  const recentDates = [...data.dates].reverse().slice(0, 10);
+  
+  if (recentDates.length === 0) {
+    attendanceList.innerHTML = '<div class="attendance-item">아직 출석 기록이 없습니다.</div>';
+  } else {
+    recentDates.forEach(date => {
+      const dateObj = new Date(date);
+      const formattedDate = dateObj.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short'
+      });
+      
+      const item = document.createElement('div');
+      item.className = 'attendance-item';
+      item.innerHTML = `<span class="date">${formattedDate}</span><span class="status">✓</span>`;
+      attendanceList.appendChild(item);
+    });
+  }
+
+  // 오늘 이미 출석했으면 버튼 비활성화
+  if (data.dates.includes(today)) {
+    checkInBtn.disabled = true;
+  } else {
+    checkInBtn.disabled = false;
+  }
+}
+
+// 페이지 로드 시 로그인 확인 및 출석 체크
 window.addEventListener('load', () => {
   const currentUser = localStorage.getItem('currentUser');
   
@@ -231,6 +480,10 @@ window.addEventListener('load', () => {
 
   // 사용자명 표시
   document.getElementById('username').textContent = currentUser;
+
+  // 출석 현황 업데이트
+  updateAttendanceUI(currentUser);
+
   document.getElementById('code').focus();
 });
 
