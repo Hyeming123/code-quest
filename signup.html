@@ -84,6 +84,11 @@
     background-color: #0d5a8f;
   }
 
+  .btn-signup:disabled {
+    background-color: #555555;
+    cursor: not-allowed;
+  }
+
   .message {
     margin-top: 15px;
     padding: 12px;
@@ -131,6 +136,28 @@
     font-size: 13px;
     color: #b0b0b0;
   }
+
+  .loading {
+    display: none;
+    text-align: center;
+    color: #4fc3f7;
+  }
+
+  .spinner {
+    border: 3px solid #3c3c3c;
+    border-top: 3px solid #4fc3f7;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 10px;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 </style>
 </head>
 <body>
@@ -145,22 +172,20 @@
   <h1>📝 회원가입</h1>
   
   <div class="info-box">
-    새로운 계정을 만들어 C 코드 컴파일러를 사용하세요.
+    Firebase를 사용한 안전한 회원가입입니다.
   </div>
 
   <form id="signupForm" onsubmit="handleSignup(event)">
     <div class="form-group">
-      <label for="username">사용자명</label>
+      <label for="email">이메일</label>
       <input 
-        type="text" 
-        id="username" 
-        placeholder="사용자명을 입력하세요" 
+        type="email" 
+        id="email" 
+        placeholder="이메일을 입력하세요" 
         required
-        minlength="3"
-        maxlength="20"
-        autocomplete="username"
+        autocomplete="email"
       >
-      <small>3~20자의 영문, 숫자, 언더스코어(_) 사용 가능</small>
+      <small>유효한 이메일 주소를 입력해주세요.</small>
     </div>
 
     <div class="form-group">
@@ -170,10 +195,10 @@
         id="password" 
         placeholder="비밀번호를 입력하세요" 
         required
-        minlength="4"
+        minlength="6"
         autocomplete="new-password"
       >
-      <small>최소 4자 이상</small>
+      <small>최소 6자 이상</small>
     </div>
 
     <div class="form-group">
@@ -183,13 +208,18 @@
         id="passwordConfirm" 
         placeholder="비밀번호를 다시 입력하세요" 
         required
-        minlength="4"
+        minlength="6"
         autocomplete="new-password"
       >
     </div>
 
-    <button type="submit" class="btn-signup">회원가입</button>
+    <button type="submit" class="btn-signup" id="signupBtn">회원가입</button>
   </form>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    회원가입 중...
+  </div>
 
   <div id="message" class="message"></div>
 
@@ -199,34 +229,44 @@
   </div>
 </div>
 
-<script>
-function handleSignup(event) {
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBpXt13oLYfr4SzA5EtYRcjddvZCRTuUSI",
+  authDomain: "code-quest-4918e.firebaseapp.com",
+  projectId: "code-quest-4918e",
+  storageBucket: "code-quest-4918e.firebasestorage.app",
+  messagingSenderId: "22281251552",
+  appId: "1:22281251552:web:3cfb4d84d3313949243e85",
+  measurementId: "G-94FKSPBZ2S"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.handleSignup = async function(event) {
   event.preventDefault();
 
-  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const passwordConfirm = document.getElementById('passwordConfirm').value;
   const messageEl = document.getElementById('message');
+  const signupBtn = document.getElementById('signupBtn');
+  const loadingEl = document.getElementById('loading');
 
   // 입력값 검증
-  if (!username || !password || !passwordConfirm) {
+  if (!email || !password || !passwordConfirm) {
     showMessage('모든 필드를 입력해주세요.', 'error');
     return;
   }
 
-  // 사용자명 형식 검증
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-    showMessage('사용자명은 3~20자의 영문, 숫자, 언더스코어(_)만 사용 가능합니다.', 'error');
+  if (password.length < 6) {
+    showMessage('비밀번호는 최소 6자 이상이어야 합니다.', 'error');
     return;
   }
 
-  // 비밀번호 길이 검증
-  if (password.length < 4) {
-    showMessage('비밀번호는 최소 4자 이상이어야 합니다.', 'error');
-    return;
-  }
-
-  // 비밀번호 일치 검증
   if (password !== passwordConfirm) {
     showMessage('비밀번호가 일치하지 않습니다.', 'error');
     document.getElementById('password').value = '';
@@ -234,25 +274,37 @@ function handleSignup(event) {
     return;
   }
 
-  // localStorage에서 사용자 데이터 조회
-  const users = JSON.parse(localStorage.getItem('users') || '{}');
+  signupBtn.disabled = true;
+  loadingEl.style.display = 'block';
 
-  // 중복 검증
-  if (users[username]) {
-    showMessage('이미 존재하는 사용자명입니다.', 'error');
-    return;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    showMessage('✅ 회원가입 성공! 로그인 페이지로 이동합니다...', 'success');
+    
+    setTimeout(() => {
+      window.location.href = 'login.html';
+    }, 1500);
+  } catch (error) {
+    loadingEl.style.display = 'none';
+    signupBtn.disabled = false;
+
+    let errorMessage = '회원가입에 실패했습니다.';
+    
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = '이미 사용 중인 이메일입니다.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = '유효하지 않은 이메일 형식입니다.';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = '비밀번호가 너무 약합니다. 더 강력한 비밀번호를 사용해주세요.';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMessage = '이메일/비밀번호 가입이 비활성화되어 있습니다.';
+    }
+
+    showMessage(`❌ ${errorMessage}`, 'error');
   }
-
-  // 새 사용자 등록
-  users[username] = password;
-  localStorage.setItem('users', JSON.stringify(users));
-
-  showMessage('✅ 회원가입 성공! 로그인 페이지로 이동합니다...', 'success');
-
-  setTimeout(() => {
-    window.location.href = 'login.html';
-  }, 1500);
-}
+};
 
 function showMessage(text, type) {
   const messageEl = document.getElementById('message');
@@ -262,13 +314,12 @@ function showMessage(text, type) {
 
 // 페이지 로드 시 이미 로그인되어 있으면 editor.html로 리다이렉트
 window.addEventListener('load', () => {
-  const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
+  const user = auth.currentUser;
+  if (user) {
     window.location.href = 'editor.html';
   }
   
-  // 사용자명 입력 필드에 포커스
-  document.getElementById('username').focus();
+  document.getElementById('email').focus();
 });
 </script>
 </body>
