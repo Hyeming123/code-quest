@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C언어 온라인 컴파일러</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  #output {
+    background-color: #0d0d0d;
+    border: 1px solid #3c3c3c;
+    padding: 15px;
+    border-radius: 4px;
+    min-height: 150px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+  }
+
+  button {
+    background-color: #0e639c;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #1177bb;
+  }
+
+  button:active {
+    background-color: #0d5a8f;
+  }
+
+  button:disabled {
+    background-color: #555555;
+    cursor: not-allowed;
+  }
+
+  .status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    display: none;
+  }
+
+  .status.info {
+    background-color: #1e3a5f;
+    color: #4fc3f7;
+    display: block;
+  }
+
+  .status.error {
+    background-color: #5f1e1e;
+    color: #ff6b6b;
+    display: block;
+  }
+
+  .status.success {
+    background-color: #1e5f1e;
+    color: #6bff6b;
+    display: block;
+  }
+
+  textarea {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #3c3c3c;
+    padding: 10px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    border-radius: 4px;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: #4fc3f7;
+  }
+
+  h2, h3 {
+    color: #4fc3f7;
+    margin-top: 30px;
+  }
+
+  .info-box {
+    background-color: #1e3a5f;
+    border-left: 4px solid #4fc3f7;
+    padding: 10px 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #b0b0b0;
+  }
+</style>
+</head>
+<body>
+<header>브라우저에서 C 코드 실행</header>
+
+<nav>
+  <a href="index.html">메인</a>
+  <a href="editor.html">실습</a>
+</nav>
+
+<div class="container">
+  <h2>C 코드 입력</h2>
+  <div class="info-box">
+    💡 C 코드를 입력하고 "▶ 실행" 버튼을 클릭하면 결과를 확인할 수 있습니다.
+  </div>
+  
+  <textarea id="code" placeholder="C 코드를 여기에 입력하세요...">#include <stdio.h>
+
+int main() {
+    printf("Hello from C!\n");
+    return 0;
+}</textarea>
+  
+  <div class="button-group">
+    <button id="runBtn" onclick="runCode()">▶ 실행</button>
+    <button id="clearBtn" onclick="clearCode()">🗑️ 초기화</button>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <h3>실행 결과</h3>
+  <pre id="output">실행 버튼을 클릭하여 코드를 실행하세요.</pre>
+</div>
+
+<script>
+// Paiza API 설정
+const PAIZA_API_KEY = 'guest'; // 공개 API 키 (제한된 기능)
+const PAIZA_API_URL = 'https://api.paiza.io/api/v1/runners/create';
+
+// 상태 메시지 표시 함수
+function showStatus(message, type = 'info') {
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = message;
+  statusEl.className = `status ${type}`;
+  
+  if (type === 'success' || type === 'error') {
+    setTimeout(() => {
+      statusEl.className = 'status';
+    }, 3000);
+  }
+}
+
+// 코드 실행 함수
+async function runCode() {
+  const code = document.getElementById('code').value;
+  const output = document.getElementById('output');
+  const runBtn = document.getElementById('runBtn');
+
+  if (!code.trim()) {
+    showStatus('❌ 코드를 입력해주세요.', 'error');
+    return;
+  }
+
+  // UI 업데이트
+  runBtn.disabled = true;
+  output.textContent = '⏳ 코드 실행 중...\n\n(서버에서 컴파일 중입니다...)';
+  showStatus('⏳ 코드를 서버에 전송하고 있습니다...', 'info');
+
+  try {
+    // Paiza API를 사용한 C 코드 컴파일
+    const response = await fetch(PAIZA_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'language': 'c',
+        'source_code': code,
+        'api_key': PAIZA_API_KEY,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      showStatus(`❌ 오류: ${data.error}`, 'error');
+      output.textContent = `❌ 컴파일 오류:\n${data.error}`;
+      return;
+    }
+
+    const executionId = data.id;
+
+    // 실행 결과 조회 (폴링)
+    let attempts = 0;
+    const maxAttempts = 30; // 최대 30초 대기
+
+    const checkResult = async () => {
+      attempts++;
+
+      const statusResponse = await fetch(
+        `https://api.paiza.io/api/v1/runners/get_status?id=${executionId}&api_key=${PAIZA_API_KEY}`
+      );
+
+      const statusData = await statusResponse.json();
+
+      if (statusData.status === 'completed') {
+        // 결과 출력
+        let resultText = '';
+
+        if (statusData.stdout) {
+          resultText += '📤 표준 출력:\n' + statusData.stdout;
+        }
+
+        if (statusData.stderr) {
+          if (resultText) resultText += '\n\n';
+          resultText += '⚠️ 오류 출력:\n' + statusData.stderr;
+        }
+
+        if (!statusData.stdout && !statusData.stderr) {
+          resultText = '✅ 코드가 성공적으로 실행되었습니다.\n(출력 없음)';
+        }
+
+        output.textContent = resultText;
+        showStatus('✅ 코드 실행이 완료되었습니다.', 'success');
+        return;
+      } else if (statusData.status === 'running') {
+        output.textContent = `⏳ 코드 실행 중...\n\n(${attempts}초 경과)`;
+
+        if (attempts < maxAttempts) {
+          setTimeout(checkResult, 1000);
+        } else {
+          showStatus('❌ 실행 시간 초과 (30초 이상)', 'error');
+          output.textContent = '❌ 실행 시간이 초과되었습니다.\n코드를 확인하고 다시 시도해주세요.';
+        }
+      } else if (statusData.status === 'failed') {
+        showStatus('❌ 코드 실행 실패', 'error');
+        output.textContent = `❌ 실행 실패:\n${statusData.stderr || '알 수 없는 오류'}`;
+      }
+    };
+
+    // 첫 번째 상태 확인
+    setTimeout(checkResult, 500);
+
+  } catch (error) {
+    showStatus(`❌ 오류 발생: ${error.message}`, 'error');
+    output.textContent = `❌ 오류 발생:\n${error.message}\n\n팁: 인터넷 연결을 확인하고 다시 시도해주세요.`;
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+// 코드 초기화 함수
+function clearCode() {
+  if (confirm('코드를 초기화하시겠습니까?')) {
+    document.getElementById('code').value = '#include <stdio.h>\n\nint main() {\n    printf("Hello from C!\\n");\n    return 0;\n}';
+    document.getElementById('output').textContent = '실행 버튼을 클릭하여 코드를 실행하세요.';
+    document.getElementById('status').className = 'status';
+  }
+}
+
+// 페이지 로드 시 코드 영역에 포커스
+window.addEventListener('load', () => {
+  document.getElementById('code').focus();
+});
+</script>
+</body>
+</html>
