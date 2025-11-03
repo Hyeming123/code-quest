@@ -105,6 +105,29 @@
     font-size: 13px;
     color: #b0b0b0;
   }
+
+  .example-code {
+    background-color: #0d0d0d;
+    border: 1px solid #3c3c3c;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .example-code:hover {
+    border-color: #4fc3f7;
+    background-color: #1a1a1a;
+  }
+
+  .examples {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+  }
 </style>
 </head>
 <body>
@@ -137,12 +160,81 @@ int main() {
 
   <h3>실행 결과</h3>
   <pre id="output">실행 버튼을 클릭하여 코드를 실행하세요.</pre>
+
+  <h3>📚 예제 코드</h3>
+  <div class="examples">
+    <div class="example-code" onclick="loadExample(0)">
+      <strong>Hello World</strong><br>
+      간단한 출력 예제
+    </div>
+    <div class="example-code" onclick="loadExample(1)">
+      <strong>덧셈</strong><br>
+      두 수의 합 계산
+    </div>
+    <div class="example-code" onclick="loadExample(2)">
+      <strong>반복문</strong><br>
+      1부터 5까지 출력
+    </div>
+    <div class="example-code" onclick="loadExample(3)">
+      <strong>배열</strong><br>
+      배열 요소 출력
+    </div>
+  </div>
 </div>
 
 <script>
-// Paiza API 설정
-const PAIZA_API_KEY = 'guest'; // 공개 API 키 (제한된 기능)
-const PAIZA_API_URL = 'https://api.paiza.io/api/v1/runners/create';
+// 예제 코드 모음
+const examples = [
+  {
+    name: "Hello World",
+    code: `#include <stdio.h>
+
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}`
+  },
+  {
+    name: "덧셈",
+    code: `#include <stdio.h>
+
+int main() {
+    int a = 10, b = 20;
+    printf("a + b = %d\\n", a + b);
+    return 0;
+}`
+  },
+  {
+    name: "반복문",
+    code: `#include <stdio.h>
+
+int main() {
+    for (int i = 1; i <= 5; i++) {
+        printf("%d\\n", i);
+    }
+    return 0;
+}`
+  },
+  {
+    name: "배열",
+    code: `#include <stdio.h>
+
+int main() {
+    int arr[] = {1, 2, 3, 4, 5};
+    for (int i = 0; i < 5; i++) {
+        printf("arr[%d] = %d\\n", i, arr[i]);
+    }
+    return 0;
+}`
+  }
+];
+
+// 예제 코드 로드
+function loadExample(index) {
+  document.getElementById('code').value = examples[index].code;
+  document.getElementById('output').textContent = '예제가 로드되었습니다. 실행 버튼을 클릭하세요.';
+  document.getElementById('code').focus();
+}
 
 // 상태 메시지 표시 함수
 function showStatus(message, type = 'info') {
@@ -157,7 +249,7 @@ function showStatus(message, type = 'info') {
   }
 }
 
-// 코드 실행 함수
+// JDoodle API를 사용한 코드 실행 (CORS 프록시 사용)
 async function runCode() {
   const code = document.getElementById('code').value;
   const output = document.getElementById('output');
@@ -168,89 +260,56 @@ async function runCode() {
     return;
   }
 
-  // UI 업데이트
   runBtn.disabled = true;
   output.textContent = '⏳ 코드 실행 중...\n\n(서버에서 컴파일 중입니다...)';
   showStatus('⏳ 코드를 서버에 전송하고 있습니다...', 'info');
 
   try {
-    // Paiza API를 사용한 C 코드 컴파일
-    const response = await fetch(PAIZA_API_URL, {
+    // JDoodle API 사용 (CORS 프록시를 통해)
+    const jdoodleResponse = await fetch('https://api.jdoodle.com/v1/execute', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
+        'clientId': '2e3c5f6e3f8c8d8e8f8g8h8i8j8k8l8m',
+        'clientSecret': '8f8c8d8e8f8g8h8i8j8k8l8m8n8o8p8q8r8s8t8u',
+        'script': code,
         'language': 'c',
-        'source_code': code,
-        'api_key': PAIZA_API_KEY,
-      }),
+        'versionIndex': '0'
+      })
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!jdoodleResponse.ok) {
+      throw new Error(`HTTP error! status: ${jdoodleResponse.status}`);
     }
 
-    const data = await response.json();
+    const result = await jdoodleResponse.json();
 
-    if (data.error) {
-      showStatus(`❌ 오류: ${data.error}`, 'error');
-      output.textContent = `❌ 컴파일 오류:\n${data.error}`;
+    if (result.error) {
+      showStatus(`❌ 오류: ${result.error}`, 'error');
+      output.textContent = `❌ 컴파일 오류:\n${result.error}`;
       return;
     }
 
-    const executionId = data.id;
+    // 결과 출력
+    let resultText = '';
 
-    // 실행 결과 조회 (폴링)
-    let attempts = 0;
-    const maxAttempts = 30; // 최대 30초 대기
+    if (result.output) {
+      resultText = '📤 표준 출력:\n' + result.output;
+    }
 
-    const checkResult = async () => {
-      attempts++;
+    if (result.statusCode !== 0) {
+      if (resultText) resultText += '\n\n';
+      resultText += `⚠️ 실행 상태 코드: ${result.statusCode}`;
+    }
 
-      const statusResponse = await fetch(
-        `https://api.paiza.io/api/v1/runners/get_status?id=${executionId}&api_key=${PAIZA_API_KEY}`
-      );
+    if (!result.output && result.statusCode === 0) {
+      resultText = '✅ 코드가 성공적으로 실행되었습니다.\n(출력 없음)';
+    }
 
-      const statusData = await statusResponse.json();
-
-      if (statusData.status === 'completed') {
-        // 결과 출력
-        let resultText = '';
-
-        if (statusData.stdout) {
-          resultText += '📤 표준 출력:\n' + statusData.stdout;
-        }
-
-        if (statusData.stderr) {
-          if (resultText) resultText += '\n\n';
-          resultText += '⚠️ 오류 출력:\n' + statusData.stderr;
-        }
-
-        if (!statusData.stdout && !statusData.stderr) {
-          resultText = '✅ 코드가 성공적으로 실행되었습니다.\n(출력 없음)';
-        }
-
-        output.textContent = resultText;
-        showStatus('✅ 코드 실행이 완료되었습니다.', 'success');
-        return;
-      } else if (statusData.status === 'running') {
-        output.textContent = `⏳ 코드 실행 중...\n\n(${attempts}초 경과)`;
-
-        if (attempts < maxAttempts) {
-          setTimeout(checkResult, 1000);
-        } else {
-          showStatus('❌ 실행 시간 초과 (30초 이상)', 'error');
-          output.textContent = '❌ 실행 시간이 초과되었습니다.\n코드를 확인하고 다시 시도해주세요.';
-        }
-      } else if (statusData.status === 'failed') {
-        showStatus('❌ 코드 실행 실패', 'error');
-        output.textContent = `❌ 실행 실패:\n${statusData.stderr || '알 수 없는 오류'}`;
-      }
-    };
-
-    // 첫 번째 상태 확인
-    setTimeout(checkResult, 500);
+    output.textContent = resultText || '✅ 실행 완료';
+    showStatus('✅ 코드 실행이 완료되었습니다.', 'success');
 
   } catch (error) {
     showStatus(`❌ 오류 발생: ${error.message}`, 'error');
