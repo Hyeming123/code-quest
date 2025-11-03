@@ -6,6 +6,36 @@
 <title>C언어 온라인 컴파일러</title>
 <link rel="stylesheet" href="styles.css">
 <style>
+  .user-info {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    color: #4fc3f7;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .logout-btn {
+    background-color: #c41e3a;
+    padding: 8px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    transition: background-color 0.3s;
+  }
+
+  .logout-btn:hover {
+    background-color: #a01830;
+  }
+
+  header {
+    position: relative;
+  }
+
   #output {
     background-color: #0d0d0d;
     border: 1px solid #3c3c3c;
@@ -131,7 +161,13 @@
 </style>
 </head>
 <body>
-<header>브라우저에서 C 코드 실행</header>
+<header>
+  브라우저에서 C 코드 실행
+  <div class="user-info">
+    <span id="username">사용자</span>
+    <button class="logout-btn" onclick="handleLogout()">로그아웃</button>
+  </div>
+</header>
 
 <nav>
   <a href="index.html">메인</a>
@@ -183,6 +219,30 @@ int main() {
 </div>
 
 <script>
+// 페이지 로드 시 로그인 확인
+window.addEventListener('load', () => {
+  const currentUser = localStorage.getItem('currentUser');
+  
+  if (!currentUser) {
+    // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // 사용자명 표시
+  document.getElementById('username').textContent = currentUser;
+  document.getElementById('code').focus();
+});
+
+// 로그아웃 함수
+function handleLogout() {
+  if (confirm('로그아웃 하시겠습니까?')) {
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('loginTime');
+    window.location.href = 'login.html';
+  }
+}
+
 // 예제 코드 모음
 const examples = [
   {
@@ -249,7 +309,7 @@ function showStatus(message, type = 'info') {
   }
 }
 
-// JDoodle API를 사용한 코드 실행 (CORS 프록시 사용)
+// JDoodle API를 사용한 코드 실행
 async function runCode() {
   const code = document.getElementById('code').value;
   const output = document.getElementById('output');
@@ -265,7 +325,7 @@ async function runCode() {
   showStatus('⏳ 코드를 서버에 전송하고 있습니다...', 'info');
 
   try {
-    // JDoodle API 사용 (CORS 프록시를 통해)
+    // JDoodle API 사용
     const jdoodleResponse = await fetch('https://api.jdoodle.com/v1/execute', {
       method: 'POST',
       headers: {
@@ -327,11 +387,6 @@ function clearCode() {
     document.getElementById('status').className = 'status';
   }
 }
-
-// 페이지 로드 시 코드 영역에 포커스
-window.addEventListener('load', () => {
-  document.getElementById('code').focus();
-});
 </script>
 </body>
 </html>

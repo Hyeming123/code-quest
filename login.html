@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로그인 - C언어 온라인 컴파일러</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .auth-container {
+    max-width: 400px;
+    margin: 60px auto;
+    padding: 40px;
+    background-color: #252526;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .auth-container h1 {
+    text-align: center;
+    color: #4fc3f7;
+    margin-top: 0;
+    font-size: 28px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d4d4d4;
+    font-weight: 500;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 12px;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: #4fc3f7;
+  }
+
+  .form-group input::placeholder {
+    color: #666666;
+  }
+
+  .btn-login {
+    width: 100%;
+    padding: 12px;
+    background-color: #0e639c;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+  }
+
+  .btn-login:hover {
+    background-color: #1177bb;
+  }
+
+  .btn-login:active {
+    background-color: #0d5a8f;
+  }
+
+  .message {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+    display: none;
+  }
+
+  .message.error {
+    background-color: #5f1e1e;
+    color: #ff6b6b;
+    display: block;
+  }
+
+  .message.success {
+    background-color: #1e5f1e;
+    color: #6bff6b;
+    display: block;
+  }
+
+  .auth-link {
+    text-align: center;
+    margin-top: 20px;
+    color: #b0b0b0;
+    font-size: 14px;
+  }
+
+  .auth-link a {
+    color: #4fc3f7;
+    text-decoration: none;
+    margin-left: 5px;
+  }
+
+  .auth-link a:hover {
+    text-decoration: underline;
+  }
+
+  .info-box {
+    background-color: #1e3a5f;
+    border-left: 4px solid #4fc3f7;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #b0b0b0;
+  }
+</style>
+</head>
+<body>
+<header>C언어 온라인 컴파일러</header>
+
+<nav>
+  <a href="index.html">메인</a>
+  <a href="login.html">로그인</a>
+</nav>
+
+<div class="auth-container">
+  <h1>🔐 로그인</h1>
+  
+  <div class="info-box">
+    테스트 계정: <strong>user</strong> / <strong>1234</strong>
+  </div>
+
+  <form id="loginForm" onsubmit="handleLogin(event)">
+    <div class="form-group">
+      <label for="username">사용자명</label>
+      <input 
+        type="text" 
+        id="username" 
+        placeholder="사용자명을 입력하세요" 
+        required
+        autocomplete="username"
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="password">비밀번호</label>
+      <input 
+        type="password" 
+        id="password" 
+        placeholder="비밀번호를 입력하세요" 
+        required
+        autocomplete="current-password"
+      >
+    </div>
+
+    <button type="submit" class="btn-login">로그인</button>
+  </form>
+
+  <div id="message" class="message"></div>
+
+  <div class="auth-link">
+    계정이 없으신가요?
+    <a href="signup.html">회원가입</a>
+  </div>
+</div>
+
+<script>
+// 테스트 계정
+const testAccount = {
+  username: 'user',
+  password: '1234'
+};
+
+function handleLogin(event) {
+  event.preventDefault();
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const messageEl = document.getElementById('message');
+
+  // 입력값 검증
+  if (!username || !password) {
+    showMessage('사용자명과 비밀번호를 입력해주세요.', 'error');
+    return;
+  }
+
+  // localStorage에서 사용자 데이터 조회
+  const users = JSON.parse(localStorage.getItem('users') || '{}');
+  
+  // 테스트 계정 추가
+  if (!users[testAccount.username]) {
+    users[testAccount.username] = testAccount.password;
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+
+  // 사용자 인증
+  if (users[username] && users[username] === password) {
+    // 로그인 성공
+    localStorage.setItem('currentUser', username);
+    localStorage.setItem('loginTime', new Date().toISOString());
+    
+    showMessage('✅ 로그인 성공! 잠시만 기다려주세요...', 'success');
+    
+    setTimeout(() => {
+      window.location.href = 'editor.html';
+    }, 1000);
+  } else {
+    showMessage('❌ 사용자명 또는 비밀번호가 올바르지 않습니다.', 'error');
+    document.getElementById('password').value = '';
+  }
+}
+
+function showMessage(text, type) {
+  const messageEl = document.getElementById('message');
+  messageEl.textContent = text;
+  messageEl.className = `message ${type}`;
+}
+
+// 페이지 로드 시 이미 로그인되어 있으면 editor.html로 리다이렉트
+window.addEventListener('load', () => {
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    window.location.href = 'editor.html';
+  }
+  
+  // 사용자명 입력 필드에 포커스
+  document.getElementById('username').focus();
+});
+</script>
+</body>
+</html>
