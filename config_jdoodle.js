@@ -6,8 +6,8 @@ const JDOODLE_API_URL = 'https://api.jdoodle.com/v1/execute';
 
 // JDoodle 클라이언트 ID와 클라이언트 시크릿 (공개 테스트용)
 // 프로덕션 환경에서는 자신의 클라이언트 ID와 시크릿을 사용하세요
-const JDOODLE_CLIENT_ID = 'YOUR_CLIENT_ID'; // JDoodle에서 발급받은 클라이언트 ID
-const JDOODLE_CLIENT_SECRET = 'YOUR_CLIENT_SECRET'; // JDoodle에서 발급받은 클라이언트 시크릿
+const JDOODLE_CLIENT_ID = 'c49ee66475faa64c22461c0b92e139'; // JDoodle에서 발급받은 클라이언트 ID
+const JDOODLE_CLIENT_SECRET = '6d91f55dc3ec6804ad51a7c74083c1dc3a94193d8733e6a0e169b65453e27363'; // JDoodle에서 발급받은 클라이언트 시크릿
 
 // C 코드를 JDoodle API로 컴파일하는 함수
 async function compileCode(code) {
