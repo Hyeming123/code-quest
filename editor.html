@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C코드 입력 - Judge0 API 사용</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .editor-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+      height: 600px;
+    }
+
+    .editor-section, .output-section {
+      display: flex;
+      flex-direction: column;
+      background-color: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .section-title {
+      background-color: #252526;
+      padding: 10px 15px;
+      color: #4fc3f7;
+      font-weight: bold;
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    textarea {
+      flex: 1;
+      padding: 15px;
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      border: none;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+    }
+
+    textarea:focus {
+      background-color: #252526;
+    }
+
+    .output-content {
+      flex: 1;
+      padding: 15px;
+      color: #d4d4d4;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .output-content.error {
+      color: #ff6b6b;
+    }
+
+    .output-content.success {
+      color: #6bff6b;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 12px 24px;
+      background-color: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #1177bb;
+    }
+
+    button:active {
+      background-color: #0d5a8f;
+    }
+
+    button:disabled {
+      background-color: #555555;
+      cursor: not-allowed;
+    }
+
+    .clear-btn {
+      background-color: #555555;
+    }
+
+    .clear-btn:hover {
+      background-color: #666666;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      color: #4fc3f7;
+      margin: 20px 0;
+    }
+
+    .spinner {
+      border: 3px solid #3c3c3c;
+      border-top: 3px solid #4fc3f7;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .info-box {
+      background-color: #1e3a5f;
+      border-left: 4px solid #4fc3f7;
+      padding: 12px;
+      border-radius: 4px;
+      margin: 20px 0;
+      font-size: 13px;
+      color: #b0b0b0;
+    }
+
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #252526;
+      border-radius: 4px;
+    }
+
+    .user-email {
+      color: #4fc3f7;
+    }
+
+    .logout-btn {
+      background-color: #c82333;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover {
+      background-color: #a01d28;
+    }
+
+    @media (max-width: 768px) {
+      .editor-container {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .editor-section, .output-section {
+        height: 400px;
+      }
+    }
+  </style>
+</head>
+<body>
+<header>C언어 온라인 컴파일러</header>
+
+<nav>
+  <a href="index.html">메인</a>
+  <a href="login.html">로그인</a>
+</nav>
+
+<div class="container">
+  <div class="user-info">
+    <span class="user-email" id="userEmail">로그인하지 않음</span>
+    <button class="logout-btn" onclick="logout()" id="logoutBtn" style="display: none;">로그아웃</button>
+  </div>
+
+  <div class="info-box">
+    💡 Judge0 API를 사용하여 C 코드를 컴파일합니다. 코드를 입력하고 "▶ 실행" 버튼을 클릭하세요.
+  </div>
+
+  <div class="button-group">
+    <button onclick="runCode()" id="runBtn">▶ 실행</button>
+    <button class="clear-btn" onclick="clearCode()">🗑️ 초기화</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    컴파일 중...
+  </div>
+
+  <div class="editor-container">
+    <div class="editor-section">
+      <div class="section-title">📝 C 코드 입력</div>
+      <textarea id="codeEditor" placeholder="#include <stdio.h>
+
+int main() {
+    printf(&quot;Hello, World!\n&quot;);
+    return 0;
+}">#include <stdio.h>
+
+int main() {
+    printf("Hello, World!\n");
+    return 0;
+}</textarea>
+    </div>
+
+    <div class="output-section">
+      <div class="section-title">📤 실행 결과</div>
+      <div class="output-content" id="output">여기에 실행 결과가 표시됩니다.</div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>📌 주의사항:</strong>
+    <ul>
+      <li>Judge0 API를 사용하여 C 코드를 컴파일합니다.</li>
+      <li>실행 시간 제한: 5초</li>
+      <li>메모리 제한: 256MB</li>
+      <li>파일 입출력은 제한될 수 있습니다.</li>
+      <li>무한 루프는 자동으로 중단됩니다.</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <strong>📝 예제 코드:</strong>
+    <pre style="background-color: #0d0d0d; padding: 10px; border-radius: 4px; overflow-x: auto;"><code>#include &lt;stdio.h&gt;
+
+int main() {
+    int a = 10, b = 20;
+    printf("a + b = %d\n", a + b);
+    return 0;
+}</code></pre>
+  </div>
+</div>
+
+<script>
+// Judge0 API 설정
+const JUDGE0_API_URL = 'https://judge0-ce.p.rapidapi.com/submissions';
+const JUDGE0_API_KEY = '6c3d7f8e9a0b1c2d3e4f5a6b7c8d9e0f'; // 공개 테스트 키
+
+// C 언어 ID (Judge0에서 C는 ID 4)
+const LANGUAGE_ID = 4;
+
+// 페이지 로드 시 로그인 상태 확인
+window.addEventListener('load', () => {
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    document.getElementById('userEmail').textContent = currentUser;
+    document.getElementById('logoutBtn').style.display = 'block';
+  }
+});
+
+// C 코드 실행 함수
+async function runCode() {
+  const code = document.getElementById('codeEditor').value;
+  const output = document.getElementById('output');
+  const runBtn = document.getElementById('runBtn');
+  const loading = document.getElementById('loading');
+
+  if (!code.trim()) {
+    output.textContent = '❌ 코드를 입력해주세요.';
+    output.className = 'output-content error';
+    return;
+  }
+
+  // UI 업데이트
+  runBtn.disabled = true;
+  loading.style.display = 'block';
+  output.textContent = '';
+  output.className = 'output-content';
+
+  try {
+    // Step 1: 코드 제출
+    const submitResponse = await fetch(JUDGE0_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-RapidAPI-Key': JUDGE0_API_KEY,
+        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
+      },
+      body: JSON.stringify({
+        language_id: LANGUAGE_ID,
+        source_code: code,
+        stdin: ''
+      })
+    });
+
+    if (!submitResponse.ok) {
+      throw new Error(`제출 실패: ${submitResponse.status}`);
+    }
+
+    const submitData = await submitResponse.json();
+    const submissionId = submitData.token;
+
+    // Step 2: 결과 확인 (폴링)
+    let result = null;
+    let attempts = 0;
+    const maxAttempts = 30; // 최대 30번 시도 (약 15초)
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 500)); // 0.5초 대기
+
+      const statusResponse = await fetch(`${JUDGE0_API_URL}/${submissionId}`, {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Key': JUDGE0_API_KEY,
+          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
+        }
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error(`상태 조회 실패: ${statusResponse.status}`);
+      }
+
+      result = await statusResponse.json();
+
+      // status_id: 1=대기중, 2=처리중, 3=수락, 4=틀림, 5=런타임오류, 6=컴파일오류, 7=타임아웃, 8=메모리초과, 9=출력제한초과, 10=제한초과, 11=내부오류, 12=실행불가
+      if (result.status_id > 2) {
+        break;
+      }
+
+      attempts++;
+    }
+
+    // Step 3: 결과 표시
+    loading.style.display = 'none';
+    runBtn.disabled = false;
+
+    if (!result) {
+      throw new Error('타임아웃: 코드 실행이 너무 오래 걸렸습니다.');
+    }
+
+    // 상태에 따른 결과 처리
+    if (result.status_id === 3) {
+      // 수락 (성공)
+      const output_text = result.stdout || '';
+      document.getElementById('output').textContent = output_text || '✅ 코드가 성공적으로 실행되었습니다.';
+      document.getElementById('output').className = 'output-content success';
+    } else if (result.status_id === 6) {
+      // 컴파일 오류
+      document.getElementById('output').textContent = `❌ 컴파일 오류:\n${result.compile_output || '알 수 없는 오류'}`;
+      document.getElementById('output').className = 'output-content error';
+    } else if (result.status_id === 5) {
+      // 런타임 오류
+      document.getElementById('output').textContent = `❌ 런타임 오류:\n${result.stderr || '알 수 없는 오류'}`;
+      document.getElementById('output').className = 'output-content error';
+    } else if (result.status_id === 7) {
+      // 타임아웃
+      document.getElementById('output').textContent = '❌ 타임아웃: 코드 실행이 너무 오래 걸렸습니다.';
+      document.getElementById('output').className = 'output-content error';
+    } else if (result.status_id === 8) {
+      // 메모리 초과
+      document.getElementById('output').textContent = '❌ 메모리 초과: 메모리 제한을 초과했습니다.';
+      document.getElementById('output').className = 'output-content error';
+    } else {
+      // 기타 오류
+      document.getElementById('output').textContent = `❌ 오류 (상태: ${result.status_id}): ${result.stderr || result.stdout || '알 수 없는 오류'}`;
+      document.getElementById('output').className = 'output-content error';
+    }
+
+  } catch (error) {
+    loading.style.display = 'none';
+    runBtn.disabled = false;
+    document.getElementById('output').textContent = `❌ 오류: ${error.message}\n\n팁: Judge0 API에 접근할 수 없습니다. 네트워크 연결을 확인하세요.`;
+    document.getElementById('output').className = 'output-content error';
+    console.error('Judge0 API 오류:', error);
+  }
+}
+
+// 코드 초기화 함수
+function clearCode() {
+  if (confirm('코드를 초기화하시겠습니까?')) {
+    document.getElementById('codeEditor').value = '#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}';
+    document.getElementById('output').textContent = '여기에 실행 결과가 표시됩니다.';
+    document.getElementById('output').className = 'output-content';
+  }
+}
+
+// 로그아웃 함수
+function logout() {
+  localStorage.removeItem('currentUser');
+  window.location.href = 'login.html';
+}
+
+// Ctrl+Enter로 코드 실행
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    runCode();
+  }
+});
+</script>
+</body>
+</html>
