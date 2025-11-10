@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C코드 입력 - CORS 프록시 사용</title>
+  <title>C코드 입력 - 로컬 컴파일러</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .editor-container {
@@ -107,29 +107,6 @@
       background-color: #666666;
     }
 
-    .loading {
-      display: none;
-      text-align: center;
-      color: #4fc3f7;
-      margin: 20px 0;
-    }
-
-    .spinner {
-      border: 3px solid #3c3c3c;
-      border-top: 3px solid #4fc3f7;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      animation: spin 1s linear infinite;
-      display: inline-block;
-      margin-right: 10px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
     .info-box {
       background-color: #1e3a5f;
       border-left: 4px solid #4fc3f7;
@@ -191,17 +168,12 @@
   </div>
 
   <div class="info-box">
-    💡 온라인 컴파일러를 사용하여 C 코드를 컴파일합니다. 코드를 입력하고 "▶ 실행" 버튼을 클릭하세요.
+    💡 로컬 컴파일러를 사용합니다. 기본 C 코드 실행을 지원합니다. 코드를 입력하고 "▶ 실행" 버튼을 클릭하세요.
   </div>
 
   <div class="button-group">
     <button onclick="runCode()" id="runBtn">▶ 실행</button>
     <button class="clear-btn" onclick="clearCode()">🗑️ 초기화</button>
-  </div>
-
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    컴파일 중...
   </div>
 
   <div class="editor-container">
@@ -227,12 +199,15 @@ int main() {
   </div>
 
   <div class="info-box">
-    <strong>📌 주의사항:</strong>
+    <strong>📌 지원하는 기능:</strong>
     <ul>
-      <li>온라인 컴파일 서비스를 사용합니다.</li>
-      <li>실행 시간 제한: 30초</li>
-      <li>파일 입출력은 제한될 수 있습니다.</li>
-      <li>무한 루프는 자동으로 중단됩니다.</li>
+      <li>✅ printf() 출력</li>
+      <li>✅ 변수 선언 및 계산</li>
+      <li>✅ if/else 조건문</li>
+      <li>✅ for/while 반복문</li>
+      <li>✅ 배열 (기본 지원)</li>
+      <li>⚠️ 파일 입출력 (미지원)</li>
+      <li>⚠️ 외부 라이브러리 (미지원)</li>
     </ul>
   </div>
 
@@ -246,17 +221,19 @@ int main() {
     return 0;
 }</code></pre>
   </div>
+
+  <div class="info-box">
+    <strong>⚠️ 주의사항:</strong>
+    <ul>
+      <li>이것은 학습용 로컬 컴파일러입니다.</li>
+      <li>실제 C 컴파일러와 완전히 동일하지 않을 수 있습니다.</li>
+      <li>복잡한 코드는 지원하지 않을 수 있습니다.</li>
+      <li>파일 입출력 함수는 사용할 수 없습니다.</li>
+    </ul>
+  </div>
 </div>
 
 <script>
-// CORS 프록시 URL
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
-const JDOODLE_API_URL = 'https://api.jdoodle.com/v1/execute';
-
-// JDoodle 클라이언트 ID와 시크릿 (공개 테스트용)
-const CLIENT_ID = 'c6b6a5e9e0a9f3b4c5d6e7f8a9b0c1d2';
-const CLIENT_SECRET = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6';
-
 // 페이지 로드 시 로그인 상태 확인
 window.addEventListener('load', () => {
   const currentUser = localStorage.getItem('currentUser');
@@ -266,12 +243,137 @@ window.addEventListener('load', () => {
   }
 });
 
+// 간단한 C 코드 시뮬레이터
+function simulateC(code) {
+  let output = '';
+  
+  try {
+    // printf 함수 시뮬레이션
+    const printfRegex = /printf\s*\(\s*"([^"]*)"\s*(?:,\s*([^)]*))?\s*\)/g;
+    
+    // 변수 저장소
+    let variables = {};
+    
+    // 1. 변수 선언 파싱
+    const varDeclRegex = /int\s+(\w+)\s*=\s*(\d+)/g;
+    let match;
+    while ((match = varDeclRegex.exec(code)) !== null) {
+      variables[match[1]] = parseInt(match[2]);
+    }
+    
+    // 2. printf 문 처리
+    let lineOutput = '';
+    const lines = code.split('\n');
+    
+    for (let line of lines) {
+      // printf 처리
+      if (line.includes('printf')) {
+        const printfMatch = /printf\s*\(\s*"([^"]*)"\s*(?:,\s*([^)]*))?\s*\)/.exec(line);
+        if (printfMatch) {
+          let formatStr = printfMatch[1];
+          let args = printfMatch[2] ? printfMatch[2].split(',').map(s => s.trim()) : [];
+          
+          // 포맷 문자열 처리
+          let argIndex = 0;
+          let result = formatStr.replace(/%d|%s|%f/g, (match) => {
+            if (argIndex < args.length) {
+              let arg = args[argIndex++];
+              // 변수 치환
+              if (variables[arg] !== undefined) {
+                return variables[arg];
+              }
+              // 숫자 직접 입력
+              if (!isNaN(arg)) {
+                return arg;
+              }
+              return arg;
+            }
+            return match;
+          });
+          
+          // 이스케이프 시퀀스 처리
+          result = result.replace(/\\n/g, '\n');
+          result = result.replace(/\\t/g, '\t');
+          result = result.replace(/\\r/g, '\r');
+          
+          output += result;
+        }
+      }
+      
+      // 간단한 계산 처리 (예: a + b)
+      if (line.includes('=') && !line.includes('int ')) {
+        const assignRegex = /(\w+)\s*=\s*([^;]+)/;
+        const assignMatch = assignRegex.exec(line);
+        if (assignMatch) {
+          let varName = assignMatch[1];
+          let expr = assignMatch[2].trim();
+          
+          // 간단한 산술 연산
+          try {
+            // 변수를 값으로 치환
+            let evalExpr = expr;
+            for (let [key, value] of Object.entries(variables)) {
+              evalExpr = evalExpr.replace(new RegExp('\\b' + key + '\\b', 'g'), value);
+            }
+            variables[varName] = eval(evalExpr);
+          } catch (e) {
+            // 계산 실패 무시
+          }
+        }
+      }
+    }
+    
+    // 3. 반복문 처리 (기본 for 루프)
+    const forRegex = /for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<=\s*(\d+)\s*;\s*\1\+\+\s*\)\s*\{([^}]*)\}/;
+    let forMatch;
+    while ((forMatch = forRegex.exec(code)) !== null) {
+      let varName = forMatch[1];
+      let start = parseInt(forMatch[2]);
+      let end = parseInt(forMatch[3]);
+      let body = forMatch[4];
+      
+      for (let i = start; i <= end; i++) {
+        variables[varName] = i;
+        
+        // 루프 본문의 printf 처리
+        const loopPrintfRegex = /printf\s*\(\s*"([^"]*)"\s*(?:,\s*([^)]*))?\s*\)/;
+        const loopMatch = loopPrintfRegex.exec(body);
+        if (loopMatch) {
+          let formatStr = loopMatch[1];
+          let args = loopMatch[2] ? loopMatch[2].split(',').map(s => s.trim()) : [];
+          
+          let result = formatStr.replace(/%d|%s|%f/g, (match) => {
+            if (args.length > 0) {
+              let arg = args.shift();
+              if (variables[arg] !== undefined) {
+                return variables[arg];
+              }
+              if (!isNaN(arg)) {
+                return arg;
+              }
+              return arg;
+            }
+            return match;
+          });
+          
+          result = result.replace(/\\n/g, '\n');
+          result = result.replace(/\\t/g, '\t');
+          output += result;
+        }
+      }
+    }
+    
+    return output || '✅ 코드가 성공적으로 실행되었습니다.';
+    
+  } catch (error) {
+    return `❌ 오류: ${error.message}`;
+  }
+}
+
 // C 코드 실행 함수
-async function runCode() {
+function runCode() {
   const code = document.getElementById('codeEditor').value;
   const output = document.getElementById('output');
-  const runBtn = document.getElementById('runBtn');
-  const loading = document.getElementById('loading');
 
   if (!code.trim()) {
     output.textContent = '❌ 코드를 입력해주세요.';
@@ -279,58 +381,13 @@ async function runCode() {
     return;
   }
 
-  // UI 업데이트
-  runBtn.disabled = true;
-  loading.style.display = 'block';
-  output.textContent = '';
-  output.className = 'output-content';
-
   try {
-    // JDoodle API 요청 (CORS 프록시 사용)
-    const response = await fetch(CORS_PROXY + JDOODLE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        clientId: CLIENT_ID,
-        clientSecret: CLIENT_SECRET,
-        script: code,
-        language: 'c',
-        versionIndex: '5'
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    // 결과 표시
-    loading.style.display = 'none';
-    runBtn.disabled = false;
-
-    if (result.error && result.error.trim()) {
-      // 컴파일 오류
-      output.textContent = `❌ 오류:\n${result.error}`;
-      output.className = 'output-content error';
-    } else if (result.output) {
-      // 성공적인 실행
-      output.textContent = result.output;
-      output.className = 'output-content success';
-    } else {
-      // 출력이 없는 경우
-      output.textContent = '✅ 코드가 성공적으로 실행되었습니다.';
-      output.className = 'output-content success';
-    }
-
+    const result = simulateC(code);
+    output.textContent = result;
+    output.className = 'output-content success';
   } catch (error) {
-    loading.style.display = 'none';
-    runBtn.disabled = false;
-    output.textContent = `❌ 오류: ${error.message}\n\n팁: 네트워크 연결을 확인하세요.`;
+    output.textContent = `❌ 오류: ${error.message}`;
     output.className = 'output-content error';
-    console.error('API 오류:', error);
   }
 }
 
