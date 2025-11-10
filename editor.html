@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C코드 입력 - Judge0 API 사용</title>
+  <title>C코드 입력 - CORS 프록시 사용</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .editor-container {
@@ -190,7 +191,7 @@
   </div>
 
   <div class="info-box">
-    💡 Judge0 API를 사용하여 C 코드를 컴파일합니다. 코드를 입력하고 "▶ 실행" 버튼을 클릭하세요.
+    💡 온라인 컴파일러를 사용하여 C 코드를 컴파일합니다. 코드를 입력하고 "▶ 실행" 버튼을 클릭하세요.
   </div>
 
   <div class="button-group">
@@ -228,9 +229,8 @@ int main() {
   <div class="info-box">
     <strong>📌 주의사항:</strong>
     <ul>
-      <li>Judge0 API를 사용하여 C 코드를 컴파일합니다.</li>
-      <li>실행 시간 제한: 5초</li>
-      <li>메모리 제한: 256MB</li>
+      <li>온라인 컴파일 서비스를 사용합니다.</li>
+      <li>실행 시간 제한: 30초</li>
       <li>파일 입출력은 제한될 수 있습니다.</li>
       <li>무한 루프는 자동으로 중단됩니다.</li>
     </ul>
@@ -249,12 +249,13 @@ int main() {
 </div>
 
 <script>
-// Judge0 API 설정
-const JUDGE0_API_URL = 'https://judge0-ce.p.rapidapi.com/submissions';
-const JUDGE0_API_KEY = '6c3d7f8e9a0b1c2d3e4f5a6b7c8d9e0f'; // 공개 테스트 키
+// CORS 프록시 URL
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+const JDOODLE_API_URL = 'https://api.jdoodle.com/v1/execute';
 
-// C 언어 ID (Judge0에서 C는 ID 4)
-const LANGUAGE_ID = 4;
+// JDoodle 클라이언트 ID와 시크릿 (공개 테스트용)
+const CLIENT_ID = 'c6b6a5e9e0a9f3b4c5d6e7f8a9b0c1d2';
+const CLIENT_SECRET = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6';
 
 // 페이지 로드 시 로그인 상태 확인
 window.addEventListener('load', () => {
@@ -285,100 +286,51 @@ async function runCode() {
   output.className = 'output-content';
 
   try {
-    // Step 1: 코드 제출
-    const submitResponse = await fetch(JUDGE0_API_URL, {
+    // JDoodle API 요청 (CORS 프록시 사용)
+    const response = await fetch(CORS_PROXY + JDOODLE_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-RapidAPI-Key': JUDGE0_API_KEY,
-        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        language_id: LANGUAGE_ID,
-        source_code: code,
-        stdin: ''
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+        script: code,
+        language: 'c',
+        versionIndex: '5'
       })
     });
 
-    if (!submitResponse.ok) {
-      throw new Error(`제출 실패: ${submitResponse.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const submitData = await submitResponse.json();
-    const submissionId = submitData.token;
+    const result = await response.json();
 
-    // Step 2: 결과 확인 (폴링)
-    let result = null;
-    let attempts = 0;
-    const maxAttempts = 30; // 최대 30번 시도 (약 15초)
-
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 500)); // 0.5초 대기
-
-      const statusResponse = await fetch(`${JUDGE0_API_URL}/${submissionId}`, {
-        method: 'GET',
-        headers: {
-          'X-RapidAPI-Key': JUDGE0_API_KEY,
-          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
-        }
-      });
-
-      if (!statusResponse.ok) {
-        throw new Error(`상태 조회 실패: ${statusResponse.status}`);
-      }
-
-      result = await statusResponse.json();
-
-      // status_id: 1=대기중, 2=처리중, 3=수락, 4=틀림, 5=런타임오류, 6=컴파일오류, 7=타임아웃, 8=메모리초과, 9=출력제한초과, 10=제한초과, 11=내부오류, 12=실행불가
-      if (result.status_id > 2) {
-        break;
-      }
-
-      attempts++;
-    }
-
-    // Step 3: 결과 표시
+    // 결과 표시
     loading.style.display = 'none';
     runBtn.disabled = false;
 
-    if (!result) {
-      throw new Error('타임아웃: 코드 실행이 너무 오래 걸렸습니다.');
-    }
-
-    // 상태에 따른 결과 처리
-    if (result.status_id === 3) {
-      // 수락 (성공)
-      const output_text = result.stdout || '';
-      document.getElementById('output').textContent = output_text || '✅ 코드가 성공적으로 실행되었습니다.';
-      document.getElementById('output').className = 'output-content success';
-    } else if (result.status_id === 6) {
+    if (result.error && result.error.trim()) {
       // 컴파일 오류
-      document.getElementById('output').textContent = `❌ 컴파일 오류:\n${result.compile_output || '알 수 없는 오류'}`;
-      document.getElementById('output').className = 'output-content error';
-    } else if (result.status_id === 5) {
-      // 런타임 오류
-      document.getElementById('output').textContent = `❌ 런타임 오류:\n${result.stderr || '알 수 없는 오류'}`;
-      document.getElementById('output').className = 'output-content error';
-    } else if (result.status_id === 7) {
-      // 타임아웃
-      document.getElementById('output').textContent = '❌ 타임아웃: 코드 실행이 너무 오래 걸렸습니다.';
-      document.getElementById('output').className = 'output-content error';
-    } else if (result.status_id === 8) {
-      // 메모리 초과
-      document.getElementById('output').textContent = '❌ 메모리 초과: 메모리 제한을 초과했습니다.';
-      document.getElementById('output').className = 'output-content error';
+      output.textContent = `❌ 오류:\n${result.error}`;
+      output.className = 'output-content error';
+    } else if (result.output) {
+      // 성공적인 실행
+      output.textContent = result.output;
+      output.className = 'output-content success';
     } else {
-      // 기타 오류
-      document.getElementById('output').textContent = `❌ 오류 (상태: ${result.status_id}): ${result.stderr || result.stdout || '알 수 없는 오류'}`;
-      document.getElementById('output').className = 'output-content error';
+      // 출력이 없는 경우
+      output.textContent = '✅ 코드가 성공적으로 실행되었습니다.';
+      output.className = 'output-content success';
     }
 
   } catch (error) {
     loading.style.display = 'none';
     runBtn.disabled = false;
-    document.getElementById('output').textContent = `❌ 오류: ${error.message}\n\n팁: Judge0 API에 접근할 수 없습니다. 네트워크 연결을 확인하세요.`;
-    document.getElementById('output').className = 'output-content error';
-    console.error('Judge0 API 오류:', error);
+    output.textContent = `❌ 오류: ${error.message}\n\n팁: 네트워크 연결을 확인하세요.`;
+    output.className = 'output-content error';
+    console.error('API 오류:', error);
   }
 }
 
